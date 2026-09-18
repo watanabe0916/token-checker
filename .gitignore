@@ -29,3 +29,9 @@ CLAUDE.md
 
 # Tooling
 .serena/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+menubar.log
