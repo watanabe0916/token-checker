@@ -56,7 +56,7 @@ claude.ai の使用量ページと同じ数字になる。
 ./uninstall-login-item.command   # 解除
 ```
 
-`~/Library/LaunchAgents/com.wkout.claude-usage.plist` を作って `launchctl` に登録する。
+`~/Library/LaunchAgents/local.claude-usage.plist` を作って `launchctl` に登録する。
 **登録するまでは自動起動しない。** 登録後に起動するのは次の2つの場合だけ:
 
 | きっかけ | plist のキー |

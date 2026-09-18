@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.wkout.claude-usage</string>
+    <string>local.claude-usage</string>
     <key>ProgramArguments</key>
     <array>
         <string>__REPO__/.venv/bin/python</string>
@@ -14,8 +14,13 @@
     <string>__REPO__</string>
     <key>RunAtLoad</key>
     <true/>
+    <!-- 異常終了したときだけ復帰させる。無条件の <true/> にすると
+         メニューの「終了」を押しても launchd が起動し直してしまい、終了できなくなる。 -->
     <key>KeepAlive</key>
-    <true/>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
     <key>StandardErrorPath</key>
     <string>__REPO__/menubar.log</string>
 </dict>

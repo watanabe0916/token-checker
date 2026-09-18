@@ -4,7 +4,7 @@
 # 先に launchd から降ろしてからプロセスを落とす。
 # plist ファイル自体は残すので、次回ログイン時にはまた自動起動する。
 # 自動起動そのものをやめるなら uninstall-login-item.command。
-LABEL="com.wkout.claude-usage"
+LABEL="local.claude-usage"
 
 if launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1; then
     launchctl bootout "gui/$UID/$LABEL" 2>/dev/null

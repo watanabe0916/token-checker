@@ -4,7 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 REPO="$(pwd)"
-LABEL="com.wkout.claude-usage"
+LABEL="local.claude-usage"
 DEST="$HOME/Library/LaunchAgents/$LABEL.plist"
 
 mkdir -p "$HOME/Library/LaunchAgents"
