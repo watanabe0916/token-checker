@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import ssl
 import time
@@ -20,8 +21,14 @@ OAUTH_BETA = "oauth-2025-04-20"
 TIMEOUT_SECONDS = 10
 
 
+@functools.lru_cache(maxsize=1)
 def _ssl_context() -> ssl.SSLContext:
-    """Homebrew の Python はシステムの CA を見ないので certifi があればそれを使う。"""
+    """Homebrew の Python はシステムの CA を見ないので certifi があればそれを使う。
+
+    SSLContext は CA バンドルを読み込むため 1 個あたり数百 KB あり、使い回す前提の
+    オブジェクト。取得のたびに作ると常駐中ずっとヒープを揺らし続けるので
+    1 個だけ作って共有する。
+    """
     try:
         import certifi
 

@@ -25,6 +25,11 @@ REFRESH_SECONDS = 180
 BACKOFF_BASE_SECONDS = 60
 BACKOFF_MAX_SECONDS = 900
 
+# rumps のタイマーは登録直後に 1 回即発火する。そのため __init__ の初回取得と
+# on_timer の初回発火が続けて走り、起動のたびに 2 回叩いてしまう。
+# 直前の取得からこの秒数が経っていなければ見送る。「今すぐ更新」の連打も防げる。
+MIN_FETCH_INTERVAL_SECONDS = 30
+
 BAR_WIDTH = 16
 
 # これより古い値は「⚠️ 古い」扱いにする。取得が一時的に失敗しても、
@@ -75,6 +80,7 @@ class UsageApp(rumps.App):
         self._last_title = ""
         self._backoff_until = 0.0
         self._consecutive_429 = 0
+        self._last_fetch_at = 0.0
         self.refresh_async()
 
     # --- タイマー -----------------------------------------------------------
@@ -106,9 +112,13 @@ class UsageApp(rumps.App):
 
     def _refresh(self) -> None:
         with self._lock:
-            if time.time() < self._backoff_until:
+            now = time.time()
+            if now < self._backoff_until:
                 # 間隔制限で待たされている最中。ここで叩くと待ち時間が延びるだけ。
                 return
+            if now - self._last_fetch_at < MIN_FETCH_INTERVAL_SECONDS:
+                return
+            self._last_fetch_at = now
 
         try:
             snapshot = fetch()
