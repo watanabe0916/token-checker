@@ -14,7 +14,17 @@ import rumps
 
 from .usage import Limit, RateLimited, Snapshot, UsageError, fetch, format_duration
 
-REFRESH_SECONDS = 60
+# 5 時間枠の表示にリアルタイム性はほとんど要らない（3 分間隔でも粒度は 1% 未満）。
+# 一方でこのエンドポイントは Claude Code 本体と枠を共有していて、叩きすぎると
+# 本体の /usage や上限警告まで巻き添えで 429 になる。実測では 60 秒間隔を
+# 続けると枠を使い切ったため、余裕を持たせて 3 分間隔にしている。
+REFRESH_SECONDS = 180
+
+# 429 が続くときは待ち時間を倍にしていく。サーバの Retry-After は 0 が返ることが
+# あり当てにならないので、こちら側でも下限と上限を持つ。
+BACKOFF_BASE_SECONDS = 60
+BACKOFF_MAX_SECONDS = 900
+
 BAR_WIDTH = 16
 
 # これより古い値は「⚠️ 古い」扱いにする。取得が一時的に失敗しても、
@@ -64,6 +74,7 @@ class UsageApp(rumps.App):
         self._dirty = True
         self._last_title = ""
         self._backoff_until = 0.0
+        self._consecutive_429 = 0
         self.refresh_async()
 
     # --- タイマー -----------------------------------------------------------
@@ -104,9 +115,14 @@ class UsageApp(rumps.App):
             error = None
         except RateLimited as exc:
             with self._lock:
-                self._backoff_until = time.time() + exc.retry_after
+                self._consecutive_429 += 1
+                wait = min(
+                    BACKOFF_MAX_SECONDS,
+                    max(exc.retry_after, BACKOFF_BASE_SECONDS * 2 ** (self._consecutive_429 - 1)),
+                )
+                self._backoff_until = time.time() + wait
             snapshot = None
-            error = str(exc)
+            error = f"取得の間隔制限に当たりました。{int(wait)} 秒後に再取得します。"
         except UsageError as exc:
             snapshot = None
             error = str(exc)
@@ -117,6 +133,7 @@ class UsageApp(rumps.App):
         with self._lock:
             if snapshot is not None:
                 self._snapshot = snapshot
+                self._consecutive_429 = 0
             self._error = error
             self._dirty = True
 
