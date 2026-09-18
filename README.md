@@ -30,10 +30,24 @@ claude.ai の使用量ページと同じ数字になる。
 ```bash
 ./setup.command     # .venv を作って依存を入れる（初回のみ）
 ./run.command       # 起動
+./stop.command      # 停止
 ```
 
 `setup.command` は `/usr/local/bin/python3`（Homebrew の 3.12）を使う。
 別の Python を使いたいときは `PYTHON=/path/to/python3 ./setup.command`。
+
+## 止め方
+
+| 方法 | 効果 |
+| --- | --- |
+| メニューバー → 「終了」 | その場で終了 |
+| `./stop.command` | その場で終了。自動起動を登録済みなら先に launchd から降ろす |
+| `./uninstall-login-item.command` | 終了したうえで、自動起動の登録ごと削除 |
+
+`pkill` による終了は launchd から見ると異常終了なので、自動起動を登録してあると
+即座に再起動される。`stop.command` は先に `launchctl bootout` するのでそこを回避できる。
+ただし plist は残すので、**次回ログイン時にはまた起動する**。恒久的にやめるなら
+`uninstall-login-item.command` を使う。
 
 ### ログイン時に自動起動する
 
@@ -43,7 +57,16 @@ claude.ai の使用量ページと同じ数字になる。
 ```
 
 `~/Library/LaunchAgents/com.wkout.claude-usage.plist` を作って `launchctl` に登録する。
-`KeepAlive` を付けているので、落ちても自動で上がり直す。
+**登録するまでは自動起動しない。** 登録後に起動するのは次の2つの場合だけ:
+
+| きっかけ | plist のキー |
+| --- | --- |
+| ログイン（macOS 起動後の初回サインイン、再ログイン、再起動） | `RunAtLoad` |
+| 異常終了（クラッシュ、`pkill` などで殺されたとき） | `KeepAlive` = `SuccessfulExit: false` |
+
+メニューの「終了」による正常終了では**起動し直さない**。
+`KeepAlive` を無条件 `true` にすると終了した瞬間に launchd が起動し直してしまい、
+終了できなくなるため、異常終了時に限定している。
 
 ## 認証
 
