@@ -33,8 +33,35 @@ claude.ai の使用量ページと同じ数字になる。
 ./stop.command      # 停止
 ```
 
-`setup.command` は `/usr/local/bin/python3`（Homebrew の 3.12）を使う。
-別の Python を使いたいときは `PYTHON=/path/to/python3 ./setup.command`。
+`setup.command` は使える Python 3.9 以上を自動で探す。探す順は
+Homebrew (Apple Silicon → Intel) → PATH 上の `python3` → macOS 標準の `/usr/bin/python3`。
+PATH 上の `python3` が Anaconda などで古いことがあるため、必ずバージョンを確認してから使う。
+明示したいときは `PYTHON=/path/to/python3 ./setup.command`。
+
+### 動かすのに必要なもの
+
+| | |
+| --- | --- |
+| macOS | メニューバー常駐に rumps / pyobjc を使うため、macOS 専用 |
+| Claude Code | **ログイン済みであること。** このツールは自前でログインせず、Claude Code が保存した認証情報を読むだけ |
+| Claude のサブスクリプション | Pro / Max など。5 時間枠という概念があるプランが対象 |
+| Python 3.9 以上 | `setup.command` が自動で探す。無ければ `brew install python3` |
+
+`claude` にログインしていない状態では「認証情報が見つかりません」と表示される。
+先にターミナルで `claude` を起動してログインすること。
+
+API キー（`ANTHROPIC_API_KEY`）だけで使っている場合は対象外。
+このエンドポイントは OAuth 認証専用で、API キー利用は従量課金なので 5 時間枠自体が存在しない。
+
+### フォークした場合
+
+環境依存の値はコードに埋めていないので、fork してそのまま動く。
+
+- LaunchAgent のラベルは `local.claude-usage` という汎用名。同名のものが
+  すでにある場合だけ、`*.plist` と install/stop/uninstall の `LABEL` を揃えて変える
+- plist 内のパスは `__REPO__` プレースホルダで、`install-login-item.command` が
+  実行時に自分の絶対パスへ置換する。リポジトリをどこに置いても動く
+- `.venv/` と `menubar.log` は `.gitignore` 済み
 
 ## 止め方
 

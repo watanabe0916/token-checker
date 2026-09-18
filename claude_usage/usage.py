@@ -110,12 +110,18 @@ def _parse_percent(entry: dict) -> float | None:
     return None
 
 
-def _retry_after_seconds(exc: urllib.error.HTTPError, default: float = 300.0) -> float:
+# Retry-After が 0 や欠落で返ることがある。そのまま信じると待たずに叩き直して
+# しまい、Claude Code 本体と共有しているこのエンドポイントの枠を削る。下限を敷く。
+MIN_BACKOFF_SECONDS = 60.0
+DEFAULT_BACKOFF_SECONDS = 300.0
+
+
+def _retry_after_seconds(exc: urllib.error.HTTPError) -> float:
     raw = exc.headers.get("Retry-After") if exc.headers else None
     try:
-        return max(0.0, float(raw))
+        return max(MIN_BACKOFF_SECONDS, float(raw))
     except (TypeError, ValueError):
-        return default
+        return DEFAULT_BACKOFF_SECONDS
 
 
 def parse(payload: dict) -> Snapshot:
