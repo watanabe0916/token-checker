@@ -65,6 +65,17 @@ class RateLimited(UsageError):
         self.retry_after = retry_after
 
 
+class TokenExpired(UsageError):
+    """アクセストークンが切れている（寿命は 8 時間）。
+
+    自前ではリフレッシュしない。認証情報を書き換えるのは Claude Code 本体だけに
+    とどめるため。Claude Code の起動か再ログインで、新しいトークンが保存される。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("トークンの期限切れです。Claude Code を起動するか、メニューの「Claude にログイン…」を押してください。")
+
+
 @dataclass
 class Limit:
     key: str
@@ -154,7 +165,7 @@ def fetch() -> Snapshot:
         raise UsageError(str(exc)) from exc
 
     if is_expired(oauth):
-        raise UsageError("トークンの期限切れです。Claude Code を一度使うと自動更新されます。")
+        raise TokenExpired()
 
     request = urllib.request.Request(
         USAGE_URL,
@@ -174,7 +185,8 @@ def fetch() -> Snapshot:
         if exc.code == 429:
             raise RateLimited(_retry_after_seconds(exc)) from exc
         if exc.code == 401:
-            raise UsageError("認証エラー (401)。Claude Code を一度使うか再ログインしてください。") from exc
+            # 期限内でも失効していることがある。対処は期限切れと同じ
+            raise TokenExpired() from exc
         raise UsageError(f"取得に失敗しました (HTTP {exc.code})") from exc
     except urllib.error.URLError as exc:
         raise UsageError(f"ネットワークエラー: {exc.reason}") from exc

@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
+import subprocess
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 
 import rumps
 
-from .usage import Limit, RateLimited, Snapshot, UsageError, fetch, format_duration
+from .usage import Limit, RateLimited, Snapshot, TokenExpired, UsageError, fetch, format_duration
 
 # 5 時間枠の表示にリアルタイム性はほとんど要らない（3 分間隔でも粒度は 1% 未満）。
 # 一方でこのエンドポイントは Claude Code 本体と枠を共有していて、叩きすぎると
@@ -29,6 +31,10 @@ BACKOFF_MAX_SECONDS = 900
 # on_timer の初回発火が続けて走り、起動のたびに 2 回叩いてしまう。
 # 直前の取得からこの秒数が経っていなければ見送る。「今すぐ更新」の連打も防げる。
 MIN_FETCH_INTERVAL_SECONDS = 30
+
+# ログインはブラウザ認証が必要なので、常駐からは自動で始めず、
+# メニューを押されたときにターミナルでこのスクリプトを開く。
+LOGIN_SCRIPT = Path(__file__).resolve().parent.parent / "login.command"
 
 BAR_WIDTH = 16
 
@@ -65,6 +71,8 @@ class UsageApp(rumps.App):
         self.item_reset = rumps.MenuItem("")
         self.item_updated = rumps.MenuItem("")
         self.item_refresh = rumps.MenuItem("今すぐ更新", callback=self.on_refresh)
+        # 普段は押せない（callback なし＝グレー表示）。期限切れのときだけ有効にする
+        self.item_login = rumps.MenuItem("Claude にログイン…")
         self.menu = [
             self.item_percent,
             self.item_bar,
@@ -72,10 +80,12 @@ class UsageApp(rumps.App):
             None,
             self.item_updated,
             self.item_refresh,
+            self.item_login,
         ]
         self._lock = threading.Lock()
         self._snapshot: Snapshot | None = None
         self._error: str | None = None
+        self._needs_login = False
         self._dirty = True
         self._last_title = ""
         self._backoff_until = 0.0
@@ -105,6 +115,9 @@ class UsageApp(rumps.App):
     def on_refresh(self, _sender) -> None:
         self.refresh_async()
 
+    def on_login(self, _sender) -> None:
+        subprocess.Popen(["open", "-a", "Terminal", str(LOGIN_SCRIPT)])
+
     # --- 取得 ---------------------------------------------------------------
 
     def refresh_async(self) -> None:
@@ -120,6 +133,7 @@ class UsageApp(rumps.App):
                 return
             self._last_fetch_at = now
 
+        needs_login = False
         try:
             snapshot = fetch()
             error = None
@@ -133,6 +147,10 @@ class UsageApp(rumps.App):
                 self._backoff_until = time.time() + wait
             snapshot = None
             error = f"取得の間隔制限に当たりました。{int(wait)} 秒後に再取得します。"
+        except TokenExpired as exc:
+            snapshot = None
+            error = str(exc)
+            needs_login = True
         except UsageError as exc:
             snapshot = None
             error = str(exc)
@@ -145,6 +163,7 @@ class UsageApp(rumps.App):
                 self._snapshot = snapshot
                 self._consecutive_429 = 0
             self._error = error
+            self._needs_login = needs_login
             self._dirty = True
 
     # --- 描画 ---------------------------------------------------------------
@@ -168,6 +187,10 @@ class UsageApp(rumps.App):
         with self._lock:
             snapshot = self._snapshot
             error = self._error
+            needs_login = self._needs_login
+
+        # 押せるのは期限切れのときだけ。callback を外すとグレー表示になる
+        self.item_login.set_callback(self.on_login if needs_login else None)
 
         limit = snapshot.five_hour if snapshot else None
         if limit is None or limit.percent is None:
