@@ -28,16 +28,15 @@ claude.ai の使用量ページと同じ数字になる。
 ## セットアップ
 
 ```bash
-./setup.command     # .venv を作って依存を入れる（初回のみ）
-./run.command       # 起動
-./stop.command      # 停止
+./run.command       # 起動（初回は .venv の作成と依存のインストールも行う）
 ./login.command     # Claude にログイン（トークン期限切れのとき）
 ```
 
-`setup.command` は使える Python 3.9 以上を自動で探す。探す順は
+初回セットアップでは、使える Python 3.9 以上を自動で探す。探す順は
 Homebrew (Apple Silicon → Intel) → PATH 上の `python3` → macOS 標準の `/usr/bin/python3`。
 PATH 上の `python3` が Anaconda などで古いことがあるため、必ずバージョンを確認してから使う。
-明示したいときは `PYTHON=/path/to/python3 ./setup.command`。
+明示したいときは `PYTHON=/path/to/python3 ./run.command`。
+作り直したいときは `rm -rf .venv` してから `./run.command`。
 
 ### 動かすのに必要なもの
 
@@ -46,7 +45,7 @@ PATH 上の `python3` が Anaconda などで古いことがあるため、必ず
 | macOS | メニューバー常駐に rumps / pyobjc を使うため、macOS 専用 |
 | Claude Code | **ログイン済みであること。** このツールは自前でログインせず、Claude Code が保存した認証情報を読むだけ |
 | Claude のサブスクリプション | Pro / Max など。5 時間枠という概念があるプランが対象 |
-| Python 3.9 以上 | `setup.command` が自動で探す。無ければ `brew install python3` |
+| Python 3.9 以上 | `run.command` が初回に自動で探す。無ければ `brew install python3` |
 
 `claude` にログインしていない状態では「認証情報が見つかりません」と表示される。
 先にターミナルで `claude` を起動してログインすること。
@@ -68,14 +67,13 @@ API キー（`ANTHROPIC_API_KEY`）だけで使っている場合は対象外。
 
 | 方法 | 効果 |
 | --- | --- |
-| メニューバー → 「終了」 | その場で終了 |
-| `./stop.command` | その場で終了。自動起動を登録済みなら先に launchd から降ろす |
+| メニューバー → 「終了」 | その場で終了。自動起動を登録していても起動し直されない |
 | `./uninstall-login-item.command` | 終了したうえで、自動起動の登録ごと削除 |
 
-`pkill` による終了は launchd から見ると異常終了なので、自動起動を登録してあると
-即座に再起動される。`stop.command` は先に `launchctl bootout` するのでそこを回避できる。
-ただし plist は残すので、**次回ログイン時にはまた起動する**。恒久的にやめるなら
-`uninstall-login-item.command` を使う。
+固まってメニューが開けないときは `pkill -f "claude_usage[.]menubar"` で落とす。
+ただし自動起動を登録してあると、`pkill` は launchd から見て異常終了なので即座に
+起動し直される。その場合は `./uninstall-login-item.command` で止め、
+必要なら `./install-login-item.command` で登録し直す。
 
 ### ログイン時に自動起動する
 
