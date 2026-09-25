@@ -123,8 +123,9 @@ def _parse_percent(entry: dict) -> float | None:
     for key in ("utilization", "utilisation", "percent", "percentUsed"):
         value = entry.get(key)
         if isinstance(value, (int, float)):
-            # 0.42 形式で来た場合も 42% に正規化する
-            return value * 100.0 if value <= 1.0 else float(value)
+            # API は 0〜100 の百分率で返す（実測: utilization 7.0 と limits[].percent 7 が一致）。
+            # 0〜1 の割合とみなして 100 倍すると、使用量 1% のときに 100% と表示されてしまう。
+            return float(value)
     return None
 
 
