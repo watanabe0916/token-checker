@@ -111,10 +111,15 @@ Claude Code がすでに保存している OAuth トークンを**読むだけ**
 アクセストークンの寿命は 8 時間。Claude Code を起動していれば本体が自動で更新する。
 このアプリは認証情報を書き換えないため、自前ではリフレッシュしない。
 
-Claude Code を使わずに 8 時間以上たつと期限切れになる。その場合:
+Claude Code を使わずに 8 時間以上たつと期限切れになる。その場合は `login.command` が復旧する:
 
-- `run.command` は起動時に期限切れ（残り 30 分未満を含む）を検知すると、先に `claude auth login` を実行する（ブラウザが開く）
-- 常駐中に切れた場合はメニューバーが `⚠️` になり、メニューの「Claude にログイン…」が押せるようになる
+1. まず `claude auth status` を実行する。Claude Code は起動時に、期限切れなら自分でトークンを更新して保存するので、これで直ればブラウザは開かない（`auth status` でこの更新が走ることは実機未検証）
+2. 直らなければ `claude auth login` を実行する（ブラウザが開く）
+
+`login.command` が呼ばれるのは次の 2 つの場面:
+
+- `run.command` の起動時に期限切れ（残り 30 分未満を含む）だったとき
+- 常駐中に切れてメニューバーが `⚠️` になり、メニューの「Claude にログイン…」を押したとき
 
 どちらもログイン後、次の取得（最大 3 分後、または「今すぐ更新」）で自動的に復帰する。
 常駐プロセスが自分でブラウザを開くことはない。
@@ -149,7 +154,7 @@ Claude Code を使わずに 8 時間以上たつと期限切れになる。そ�
 | `claude_usage/credentials.py` | Keychain / ファイルから OAuth トークンを読む |
 | `claude_usage/usage.py` | 使用量 API を叩いて正規化する。単体でも実行可 |
 | `claude_usage/menubar.py` | rumps によるメニューバー常駐 |
-| `login.command` | `claude auth login` を実行する。`--if-expired` で期限切れのときだけ |
+| `login.command` | トークンの復旧。本体に更新させ、だめならブラウザでログイン。`--if-expired` で期限切れのときだけ |
 
 API の生レスポンスを見たいとき:
 
